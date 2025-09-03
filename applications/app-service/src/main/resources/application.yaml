@@ -2,7 +2,7 @@ server:
   port: 8080
 spring:
   application:
-    name: "crediya-authentication"
+    name: "crediya-user"
   devtools:
     add-properties: false
   h2:
@@ -22,3 +22,11 @@ management:
         enabled: true
 cors:
   allowed-origins: "http://localhost:4200,http://localhost:8080"
+adapters:
+  r2dbc:
+    host: ${POSTGRES_HOST:localhost}
+    port: ${POSTGRES_PORT:5432}
+    database: ${POSTGRES_DB:authentication-db}
+    schema: public
+    username: ${POSTGRES_USER:authentication-root}
+    password: ${POSTGRES_PASSWORD:authentication-password}
