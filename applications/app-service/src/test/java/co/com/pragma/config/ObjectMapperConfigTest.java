@@ -1,4 +1,4 @@
-package co.com.pragma.bancolombia.config;
+package co.com.pragma.config;
 
 import org.junit.jupiter.api.Test;
 import org.reactivecommons.utils.ObjectMapper;
