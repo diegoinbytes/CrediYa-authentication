@@ -4,210 +4,130 @@ import co.com.pragma.api.dto.UserDTO;
 import co.com.pragma.model.user.User;
 import co.com.pragma.usecase.user.UserUseCase;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.web.reactive.server.WebTestClient;
-import org.springframework.transaction.reactive.TransactionalOperator;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.Errors;
 import org.springframework.validation.Validator;
-import reactor.core.publisher.Flux;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
-@ContextConfiguration(classes = {RouterRest.class, HandlerV1.class})
-@WebFluxTest
+@ExtendWith(MockitoExtension.class)
 class RouterRestTest {
 
-    /*@Autowired
     private WebTestClient webTestClient;
 
-    @MockBean
+    @Mock
     private UserUseCase userUseCase;
-    @MockBean
-    private TransactionalOperator transactionalOperator;
-    @MockBean
+
+    @Mock
     private ObjectMapper objectMapper;
-    @MockBean
+
+    @Mock
+    public TransactionalOperator transactionalOperator;
+
+    @Mock
     private Validator validator;
 
-    // Clase Builder estática para crear objetos User de prueba
-    private static class TestUserBuilder {
-        private String id = UUID.randomUUID().toString();
-        private String email = "testuser@mail.com";
-        private String name = "Test";
-        private String lastName = "User";
-        private String documentNumber = "123456789";
-        private String phone = "1234567890";
-        private String idRol = "1";
-        private int basicSalary = 1000;
+    private HandlerV1 handlerV1;
+    private RouterRest routerRest;
 
-        public TestUserBuilder withId(String id) {
-            this.id = id;
-            return this;
-        }
+    private final String BASE_URL = "/api/v1";
+    private final String USER_ID = "550e8400-e29b-41d4-a716-446655440000";
+    private final String EMAIL = "test@example.com";
+    private User testUser;
 
-        public TestUserBuilder withEmail(String email) {
-            this.email = email;
-            return this;
-        }
+    @BeforeEach
+    void setUp() {
+        handlerV1 = new HandlerV1(transactionalOperator, userUseCase, objectMapper, validator);
+        routerRest = new RouterRest();
 
-        public TestUserBuilder withName(String name) {
-            this.name = name;
-            return this;
-        }
+        webTestClient = WebTestClient.bindToRouterFunction(routerRest.routerFunction(handlerV1)).build();
 
-        public User build() {
-            return User.builder()
-                    .id(this.id)
-                    .email(this.email)
-                    .name(this.name)
-                    .lastName(this.lastName)
-                    .documentNumber(this.documentNumber)
-                    .phone(this.phone)
-                    .idRol(this.idRol)
-                    .basicSalary(this.basicSalary)
-                    .build();
-        }
-
-        public UserDTO buildDTO() {
-            // Se actualiza el constructor de UserDTO para incluir todos los campos.
-            return new UserDTO(this.email, this.name, this.lastName, this.email, this.documentNumber, this.phone, this.idRol, this.basicSalary);
-        }
+        testUser = new User();
+        testUser.setId(USER_ID);
+        testUser.setName("Test User");
+        testUser.setEmail(EMAIL);
     }
 
-    // --- Pruebas para GET /api/v1/users/{id} ---
-
     @Test
-    void testGetUserById_Success() {
-        // Arrange
-        String userId = UUID.randomUUID().toString();
-        User user = new TestUserBuilder().withId(userId).build();
-        when(userUseCase.getBy(UUID.fromString(userId))).thenReturn(Mono.just(user));
+    void shouldGetUserById() {
+        when(userUseCase.getBy(any(UUID.class))).thenReturn(Mono.just(testUser));
 
-        // Act & Assert
         webTestClient.get()
-                .uri("/api/v1/users/{id}", userId)
+                .uri(BASE_URL + "/usuarios/" + USER_ID)
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(User.class).isEqualTo(user);
+                .expectBody()
+                .jsonPath("$.id").isEqualTo(USER_ID)
+                .jsonPath("$.email").isEqualTo(EMAIL);
     }
 
     @Test
-    void testGetUserById_NotFound() {
-        // Arrange
-        String userId = UUID.randomUUID().toString();
-        when(userUseCase.getBy(UUID.fromString(userId))).thenReturn(Mono.empty());
+    void shouldSearchUsersByEmail() {
+        when(userUseCase.findByEmail(EMAIL)).thenReturn(reactor.core.publisher.Flux.just(testUser));
 
-        // Act & Assert
         webTestClient.get()
-                .uri("/api/v1/users/{id}", userId)
-                .accept(MediaType.APPLICATION_JSON)
-                .exchange()
-                .expectStatus().isNotFound()
-                .expectBody().isEmpty();
-    }
-
-    // --- Pruebas para GET /api/v1/users?email={email} ---
-
-    @Test
-    void testGetUsersByEmail_Success() {
-        // Arrange
-        String email = "test@mail.com";
-        User user = new TestUserBuilder().withEmail(email).build();
-        when(userUseCase.findByEmail(email)).thenReturn(Flux.just(user));
-
-        // Act & Assert
-        webTestClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/api/v1/users").queryParam("email", email).build())
+                .uri(uriBuilder -> uriBuilder
+                        .path(BASE_URL + "/usuarios/search")
+                        .queryParam("email", EMAIL)
+                        .build())
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBodyList(User.class)
-                .contains(user);
+                .expectBody()
+                .jsonPath("$[0].email").isEqualTo(EMAIL);
     }
 
     @Test
-    void testGetUsersByEmail_NotFound() {
-        // Arrange
-        String email = "notfound@mail.com";
-        when(userUseCase.findByEmail(email)).thenReturn(Flux.empty());
+    void shouldCreateUser() {
+        User newUser = new User();
+        newUser.setName("New User");
+        newUser.setEmail("newuser@example.com");
+        Errors mockErrors = Mockito.mock(Errors.class);
 
-        // Act & Assert
-        webTestClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/api/v1/users").queryParam("email", email).build())
-                .accept(MediaType.APPLICATION_JSON)
-                .exchange()
-                .expectStatus().isNotFound()
-                .expectBodyList(User.class).hasSize(0);
-    }
+        when(objectMapper.convertValue(any(), eq(User.class))).thenAnswer(invocation -> {
+            Object source = invocation.getArgument(0);
+            if (source instanceof UserDTO) {
+                User user = new User();
+                user.setName(((UserDTO) source).name());
+                user.setEmail(((UserDTO) source).email());
+                // Set other fields as needed
+                return user;
+            }
+            return null;
+        });
 
-    @Test
-    void testGetUsersByEmail_BadRequestMissingEmail() {
-        // Act & Assert
-        webTestClient.get()
-                .uri("/api/v1/users")
-                .accept(MediaType.APPLICATION_JSON)
-                .exchange()
-                .expectStatus().isBadRequest();
-    }
+        when(userUseCase.create(any(User.class))).thenReturn(Mono.just(testUser));
+        when(transactionalOperator.transactional(any(Mono.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(validator.validateObject(any())).thenReturn(mockErrors);
+        when(mockErrors.hasErrors()).thenReturn(false);
 
-    // --- Pruebas para POST /api/v1/users ---
-
-    @Test
-    void testPostResource_Success() {
-        // Arrange
-        TestUserBuilder builder = new TestUserBuilder().withEmail("newuser@mail.com").withName("New User");
-        UserDTO userDTO = builder.buildDTO();
-        User userToSave = builder.build();
-        User savedUser = builder.build();
-
-        when(objectMapper.convertValue(any(UserDTO.class), eq(User.class))).thenReturn(userToSave);
-        when(userUseCase.create(any(User.class))).thenReturn(Mono.just(savedUser));
-        when(transactionalOperator.transactional(any(Mono.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        // Mock de la validación exitosa
-        Errors errors = mock(Errors.class);
-        when(errors.hasErrors()).thenReturn(false);
-        when(validator.validateObject(any())).thenReturn(errors);
-
-        // Act & Assert
         webTestClient.post()
-                .uri("/api/v1/users")
+                .uri(BASE_URL + "/usuarios/")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(userDTO)
+                .bodyValue("""
+                        {
+                            "name": "New User",
+                            "email": "newuser@example.com"
+                        }
+                        """)
                 .exchange()
-                .expectStatus().isOk()
-                .expectBody(User.class).isEqualTo(savedUser);
+                .expectStatus().isOk();
     }
-
-    @Test
-    void testPostResource_BadRequestValidationFailure() {
-        // Arrange
-        TestUserBuilder builder = new TestUserBuilder().withEmail("invalid-email").withName("Invalid User");
-        UserDTO userDTO = builder.buildDTO();
-
-        // Mock de la validación fallida
-        Errors errors = mock(Errors.class);
-        when(errors.hasErrors()).thenReturn(true);
-        when(validator.validateObject(any())).thenReturn(errors);
-
-        // Act & Assert
-        webTestClient.post()
-                .uri("/api/v1/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(userDTO)
-                .exchange()
-                .expectStatus().isBadRequest();
-    }*/
 }

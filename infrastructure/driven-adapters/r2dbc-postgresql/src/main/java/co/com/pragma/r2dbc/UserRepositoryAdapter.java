@@ -6,6 +6,7 @@ import co.com.pragma.model.user.gateways.UserRepository;
 import co.com.pragma.r2dbc.entity.UserEntity;
 import co.com.pragma.r2dbc.helper.ReactiveAdapterOperations;
 import org.reactivecommons.utils.ObjectMapper;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -32,13 +33,13 @@ public class UserRepositoryAdapter extends ReactiveAdapterOperations<
     @Override
     public Mono<User> save(User entity) {
         return super.save(entity)
-            /*.onErrorResume(
+            .onErrorResume(
                 DataIntegrityViolationException.class,
                 ex ->
                     Mono.error(
                         new ModelExceptions.ExistEmailException("Email is already registred")
                     )
-            )*/;
+            );
     }
 
     @Override

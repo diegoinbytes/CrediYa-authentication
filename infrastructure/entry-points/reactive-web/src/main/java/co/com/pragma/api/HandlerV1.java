@@ -17,6 +17,7 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -39,22 +40,25 @@ public class HandlerV1 {
     }
 
     public Mono<ServerResponse> getUsersByEmail(ServerRequest serverRequest) {
-        String email = serverRequest.queryParam("email")
-                .orElseThrow(() -> new ContractException.RequestErrorException("Email parameter is required"));
+        Optional<String> email = serverRequest.queryParam("email");
 
-        logger.info("call get users by email: {}", email.replaceAll("(^.).*(@.*$)", "$1***$2"));
+        if (email.isPresent()){
+            logger.info("call get users by email: {}", email.get().replaceAll("(^.).*(@.*$)", "$1***$2"));
 
-        return userUseCase.findByEmail(email)
-                .collectList()
-                .flatMap(users -> {
-                    if (users.isEmpty()) {
-                        return ServerResponse.notFound().build();
-                    } else {
-                        return ServerResponse.ok()
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .bodyValue(users);
-                    }
-                });
+            return userUseCase.findByEmail(email.orElse(null))
+                    .collectList()
+                    .flatMap(users -> {
+                        if (users.isEmpty()) {
+                            return ServerResponse.notFound().build();
+                        } else {
+                            return ServerResponse.ok()
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .bodyValue(users);
+                        }
+                    });
+        } else {
+            return Mono.error(new ContractException.RequestErrorException("Email parameter is required"));
+        }
     }
 
     public Mono<ServerResponse> postResource(ServerRequest serverRequest) {
