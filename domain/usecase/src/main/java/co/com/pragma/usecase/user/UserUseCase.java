@@ -27,14 +27,14 @@ public class UserUseCase {
                 user.getEmail()).flatMap(
                 exist -> {
                     if (exist){
-                        return Mono.error( new ModelExceptions.ExistEmailException("Email is already registred"));
+                        return Mono.error( new ModelExceptions.ExistEmailException("Email is already registred."));
                     } else {
                         return userRepository.save(user);
                     }
                 }
             );
         } else {
-            return Mono.error(new ModelExceptions.BasedSalaryNotValidException("Base salary must be between 0 and 15,000,000"));
+            return Mono.error(new ModelExceptions.BasedSalaryNotValidException("error in request data."));
         }
     }
 }
