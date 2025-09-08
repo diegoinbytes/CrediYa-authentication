@@ -57,7 +57,7 @@ public class HandlerV1 {
                         }
                     });
         } else {
-            return Mono.error(new ContractException.RequestErrorException("Email parameter is required"));
+            return Mono.error(new ContractException.RequestErrorException("error in request data."));
         }
     }
 
